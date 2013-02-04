@@ -564,10 +564,10 @@ void* trampoline(void* tid) {
         int core = rank % (g_ncores * g_nsockets);
         int idx;
 
-        if(g_nthreads <= 2) {
-            //Cheat like MPI for microbenchmarks
-            idx = core;
-        } else {
+        //if(g_nthreads <= 2) {
+        //    //Cheat like MPI for microbenchmarks
+        //    idx = core;
+        //} else {
             //Spread ranks evenly across sockets, grouping adjacent ranks into one
             //socket.
             int rms = g_nthreads % g_nsockets;
@@ -579,7 +579,7 @@ void* trampoline(void* tid) {
                 rs -= 1;
                 idx = (rmd / rs) * g_ncores + (rmd % rs) + rms * g_ncores;
             }
-        }
+        //}
 
         //printf("Rank %d binding to index %d\n", rank, idx);
 
@@ -618,6 +618,7 @@ void* trampoline(void* tid) {
     g_send_reqs[rank].head.next = NULL;
     g_send_reqs[rank].tail = &g_send_reqs[rank].head;
 
+#ifdef __bg__
     if(Kernel_L2AtomicsAllocate(&g_send_reqs[rank], sizeof(HMPI_Request_list))) {
         printf("ERROR Unable to allocate L2 atomic memory\n");
         fflush(stdout);
@@ -625,6 +626,8 @@ void* trampoline(void* tid) {
     }
 
     LOCK_INIT_NA(&g_send_reqs[rank].lock);
+#endif
+    LOCK_INIT(&g_send_reqs[rank].lock);
 
     //LOCK_INIT_NA(&g_send_reqs[rank].match);
     //g_send_reqs[rank].match = 0;
@@ -818,6 +821,7 @@ static int HMPI_Progress_send(const HMPI_Request send_req)
     //If mesage is short, receiver won't bother clearing the match lock, and
     // instead just does the copy and marks completion.
 
+#if 0
     //HMPI_Request* match = &g_send_reqs[send_req->proc].match;
     //HMPI_Request_list* req_list = &g_send_reqs[send_req->proc];
     
@@ -875,6 +879,7 @@ static int HMPI_Progress_send(const HMPI_Request send_req)
         while(get_reqstat(send_req) != HMPI_REQ_COMPLETE);
         return HMPI_REQ_COMPLETE;
     }
+#endif
 
     return HMPI_REQ_ACTIVE;
 }
@@ -900,8 +905,9 @@ static inline void HMPI_Complete_recv(HMPI_Request recv_req, HMPI_Request send_r
     }
 #endif
 
-    if(size < BLOCK_SIZE * 2) {
+//    if(size < BLOCK_SIZE * 2) {
         memcpy((void*)recv_req->buf, send_req->buf, size);
+#if 0
     } else {
         //HMPI_Request_list* req_list = g_tl_my_send_reqs;
 
@@ -951,6 +957,7 @@ static inline void HMPI_Complete_recv(HMPI_Request recv_req, HMPI_Request send_r
         //while(send_req->u.local.match_req == NULL);
         //while(__check_lockd_mp(&send_req->u.local.match_req, recv_req, NULL));
     }
+#endif
 
     //Mark send and receive requests done
     update_reqstat(send_req, HMPI_REQ_COMPLETE);
