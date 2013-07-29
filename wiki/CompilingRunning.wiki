@@ -53,7 +53,7 @@ Yet again, Blue Gene/Q is different.  First off, the above command probably won'
 
 == Impact of using a Shared Heap Allocator ==
 
-The shared heap allocator returns shared memory from malloc() and friends.  That is, a pointer returned by malloc() on one process (MPI rank) is valid on all participating processes on the same node.  The implication here is that it is perfectly valid to malloc() some memory, do something with it, and pass a pointer to that memory via MPI Send/Recv, and another rank can access that same memory directly, without any copying or translation (see Ownership Passing with HMPI).  This feature is the basis for all of HMPI's optimizations.
+The shared heap allocator returns shared memory from malloc() and friends.  That is, a pointer returned by malloc() on one process (MPI rank) is valid on all participating processes on the same node.  The implication here is that it is perfectly valid to malloc() some memory, do something with it, and pass a pointer to that memory via MPI Send/Recv, and another rank can access that same memory directly, without any copying or translation (see Ownership Passing with HMPI).  Existing shared memory synchronization primitives such as POSIX-threads mutexes/semaphores and [http://gcc.gnu.org/onlinedocs/gcc-4.1.1/gcc/Atomic-Builtins.html GCC built-in atomics] work just as they do among threads.  This feature is the basis for all of HMPI's optimizations.
 
 
 == Missing Features ==
