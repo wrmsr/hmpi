@@ -62,6 +62,7 @@ Just adding the above profiling code won't cause anything to happen, some define
 
 To enable the use of PAPI counters:
  
+
 1. Add -D_PROFILE_PAPI_EVENTS=1 -I$(PAPI)/include to the compile command line, and -L$(HMPI)/lib -lpapi to the link command line, where $(PAPI) is set to the PAPI installation directory: on LC systems, use PAPI=/usr/local/tools/papi.
 
 2. The profile code expects an environment variable PROFILE_PAPI_EVENTS to be set.  It should be a space separated list of PAPI counter names as shown by the papi_avail, papi_native_avail, and papi_event_chooser programs.  You'll get an error if you run without the environment variable set.  For example:
