@@ -1,0 +1,8 @@
+#summary Getting Started: Compiling and Running HMPI
+= Introduction =
+
+Compile on an x86 system with just 'make', or on Blue Gene/Q with 'make bgq'.  This will produce libhmpi.a and libhmpi-bgq.a, respectively.
+
+To compile an app to use HMPI, first you need to replace all #includes of mpi.h with hmpi.h.  Compile with -I$(HMPI_DIR) and link with -L$(HMPI_DIR) -lhmpi.
+
+Our shared heap allocator based on dlmalloc is linked in and used by default.  It will use POSIX SHM to try to mmap as much memory as possible.  The file that gets created is /dev/shm/hmpismfile.  If the app doesn't exit cleanly, this file will probably be left behind on every node, which can cause problems for later HMPI runs.  If you're getting aborts/segfaults very early on when running an app, this is probably the cause.
