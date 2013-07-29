@@ -1,8 +1,54 @@
 #summary Getting Started: Compiling and Running HMPI
-= Introduction =
 
-Compile on an x86 system with just 'make', or on Blue Gene/Q with 'make bgq'.  This will produce libhmpi.a and libhmpi-bgq.a, respectively.
+== Obtain the source code and Compile ==
 
-To compile an app to use HMPI, first you need to replace all #includes of mpi.h with hmpi.h.  Compile with -I$(HMPI_DIR) and link with -L$(HMPI_DIR) -lhmpi.
+First, grab the source code, either one of the tarballs or SVN.  Compile on an x86 system with just 'make', or on Blue Gene/Q with 'make bgq'.  This will produce libhmpi.a and libhmpi-bgq.a, respectively.
 
-Our shared heap allocator based on dlmalloc is linked in and used by default.  It will use POSIX SHM to try to mmap as much memory as possible.  The file that gets created is /dev/shm/hmpismfile.  If the app doesn't exit cleanly, this file will probably be left behind on every node, which can cause problems for later HMPI runs.  If you're getting aborts/segfaults very early on when running an app, this is probably the cause.
+To compile an application to use HMPI, first you need to replace all #includes of mpi.h with hmpi.h.
+
+Compile applications with these extra flags on x86 (they can be split up for separate compile/link commands appropriately):
+{{{
+-I$(HMPI_DIR) -L$(HMPI_DIR) -lhmpi
+}}}
+
+Compile applications with these extra flags on Blue Gene/Q:
+{{{
+-I$(HMPI_DIR) -L$(HMPI_DIR) -lhmpi-bgq -Wl,--allow-multiple-definition
+}}}
+
+The extra linker flag above is required to make weak symbols actually be weak on Blue Gene/Q.  Without it, the linker will emit multiple definition errors for malloc/free/etc.
+
+
+== Shared Heap Allocator Issues ==
+
+Our shared heap allocator based on dlmalloc is linked in and used by default (BG_MAP_COMMONHEAP is no longer used by HMPI on Blue Gene/Q).  It will use POSIX SHM to try to mmap as much memory as possible.  On Blue Gene/Q, two environment variables need to be set: SM_SIZE and BG_SHAREDMEMSIZE.  BG_SHAREDMEMSIZE configures the amount of shared memory the system reserves when running on the compute nodes.  SM_SIZE configures how much shared memory the shared heap allocator will consume.  Below are reasonable defaults:
+
+{{{
+export SM_SIZE=12288
+export BG_SHAREDMEMSIZE=`expr $SM_SIZE + 65`
+}}}
+
+Numbers are in units of megabytes for both variables.  The default value for BG_SHAREDMEMSIZE is 64 megabytes, which is used by the system and underlying MPI.  When configuring for HMPI, it is necessary to account for that plus the space the shared heap allocator will consume (ideally all the rest of memory).
+
+When running an application, the shared heap allocator creates a file /dev/shm/hmpismfile on each node (/dev/shm is normally a tmpfs mount).  Upon normal termination, this file gets cleaned up automatically.  However, if the application segfaults or is killed using CTRL+C, that file will likely be left behind.  On LC systems (e.g., Cab) this can be cleaned up using the following command:
+
+{{{
+srun -N $SLURM_NNODES --tasks-per-node=1 rm /dev/shm/hmpismfile
+}}}
+
+Yet again, Blue Gene/Q is different.  First off, the above command probably won't work.  However it doesn't seem necessary, as the OS on the compute nodes appears to clean up the shared memory file regardless of how the application terminates.  In other words, the above issue doesn't apply to Blue Gene/Q, at least on the LC systems.
+
+
+== Impact of using a Shared Heap Allocator ==
+
+The shared heap allocator returns shared memory from malloc() and friends.  That is, a pointer returned by malloc() on one process (MPI rank) is valid on all participating processes on the same node.  The implication here is that it is perfectly valid to malloc() some memory, do something with it, and pass a pointer to that memory via MPI Send/Recv, and another rank can access that same memory directly, without any copying or translation (see Ownership Passing with HMPI).  This feature is the basis for all of HMPI's optimizations.
+
+
+== Missing Features ==
+
+Being a research project, HMPI doesn't fully implement MPI, although support is growing over time.  If it appears that some functionality is missing, contact the authors and we'll try to get it added.  Most notably, HMPI currently does not support non-contiguous user-defined MPI datatypes, or alternate send forms like MPI_Bsend and MPI_Ssend.  The one-sided interface is not implemented, nor the new features of MPI-3.
+
+
+== Running HMPI ==
+
+Once compiled and linked into a normal MPI application, nothing special needs to be done to run using MPI.  Just run the application as it is normally intended.  HMPI should be completely transparent, though hopefully providing speedups.
