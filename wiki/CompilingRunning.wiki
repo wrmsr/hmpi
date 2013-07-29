@@ -28,7 +28,7 @@ export SM_SIZE=12288
 export BG_SHAREDMEMSIZE=`expr $SM_SIZE + 65`
 }}}
 
-Numbers are in units of megabytes for both variables.  The default value for BG_SHAREDMEMSIZE is 64 megabytes, which is used by the system and underlying MPI.  When configuring for HMPI, it is necessary to account for that plus the space the shared heap allocator will consume (ideally all the rest of memory).
+Numbers are in units of megabytes for both variables.  The default value for BG_SHAREDMEMSIZE is 64 megabytes, which is used by the system and underlying MPI.  When configuring for HMPI, it is necessary to account for that plus the space the shared heap allocator will consume (ideally all the rest of memory).  Note that the application's heap area will be located in this shared memory region, so it is not necessary to leave regular memory aside for that purpose (only the program data segments, global variables, and stack remain in regular/private memory).
 
 When running an application, the shared heap allocator creates a file /dev/shm/hmpismfile on each node (/dev/shm is normally a tmpfs mount).  Upon normal termination, this file gets cleaned up automatically.  However, if the application segfaults or is killed using CTRL+C, that file will likely be left behind.  On LC systems (e.g., Cab) this can be cleaned up using the following command:
 
