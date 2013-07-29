@@ -62,7 +62,11 @@ Basic timing:
 Use PAPI counters:
 -D_PROFILE_PAPI_EVENTS=1
 
-If you turn on PAPI counters, the code expects an environment variable PROFILE_PAPI_EVENTS to be set.  It should be a space separated list of PAPI counter names as shown by the papi_avail, papi_native_avail, and papi_event_chooser programs.  You'll get an error if you run without the environment variable set.  For example:
+If you turn on PAPI counters, two things need to be dealt with:
+
+1. Add -I$(PAPI)/include to the compile command line, and -L$(HMPI)/lib -lpapi to the link command line, where $(PAPI) is set to the PAPI installation directory: on LC systems, use PAPI=/usr/local/tools/papi.
+
+2. The profile code expects an environment variable PROFILE_PAPI_EVENTS to be set.  It should be a space separated list of PAPI counter names as shown by the papi_avail, papi_native_avail, and papi_event_chooser programs.  You'll get an error if you run without the environment variable set.  For example:
 
 export PROFILE_PAPI_EVENTS="PAPI_L1_TCM PAPI_L2_TCM"
 
