@@ -21,7 +21,7 @@ The extra linker flag above is required to make weak symbols actually be weak on
 
 == Shared Heap Allocator Issues ==
 
-Our shared heap allocator based on dlmalloc is linked in and used by default (BG_MAP_COMMONHEAP is no longer used by HMPI on Blue Gene/Q).  It will use POSIX SHM to try to mmap as much memory as possible.  On Blue Gene/Q, two environment variables need to be set: SM_SIZE and BG_SHAREDMEMSIZE.  BG_SHAREDMEMSIZE configures the amount of shared memory the system reserves when running on the compute nodes.  SM_SIZE configures how much shared memory the shared heap allocator will consume.  Below are reasonable defaults:
+Our shared heap allocator based on [http://g.oswego.edu/dl/html/malloc.html dlmalloc] is linked in and used by default (BG_MAP_COMMONHEAP is no longer used by HMPI on Blue Gene/Q).  It will use POSIX SHM to try to mmap as much memory as possible.  On Blue Gene/Q, two environment variables need to be set: SM_SIZE and BG_SHAREDMEMSIZE.  BG_SHAREDMEMSIZE configures the amount of shared memory the system reserves when running on the compute nodes.  SM_SIZE configures how much shared memory the shared heap allocator will consume.  Below are reasonable defaults:
 
 {{{
 export SM_SIZE=12288
