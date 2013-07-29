@@ -72,6 +72,7 @@ PROFILE_PAPI_EVENTS="PAPI_L1_TCM PAPI_L2_TCM" srun -N 1 -n 2 ./NPhmpi
 
 For each profile timer variable declared, separate counts of the requested PAPI events will be maintained.  When printing profiling information using PROFILE_TIMER_SHOW, an additional line will be printed for each event.  For example:
 
+{{{
 TIME             app cnt 4096    time 166048071.376866 ms total  40539.079926 ms avg
 PAPI          PAPI_L1_DCM 1656120674540 total  404326336.558 avg
 PAPI          PAPI_L1_ICM 16691788971 total    4075143.792 avg
@@ -82,3 +83,4 @@ PAPI          PAPI_L1_DCM 127710384319 total       1065.959 avg
 PAPI          PAPI_L1_ICM  726181455 total          6.061 avg
 PAPI          PAPI_L1_LDM 32928441475 total        274.843 avg
 PAPI          PAPI_L1_STM 95508124299 total        797.177 avg
+}}}
