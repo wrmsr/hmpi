@@ -2,7 +2,13 @@
 
 == Obtain the source code and Compile ==
 
-First, grab the source code, either one of the tarballs or SVN.  Compile on an x86 system with just 'make', or on Blue Gene/Q with 'make bgq'.  This will produce libhmpi.a and libhmpi-bgq.a, respectively.
+First, grab the source code, either one of the tarballs or doing an SVN checkout (see the Source page for the project).  Tarballs are occasionally made available here: 
+
+[https://code.google.com/p/hmpi/source/browse/#svn%2Frelease]
+
+To download, select the desired file and use the 'View raw file' link under File Info on the right.
+
+Compile on an x86 system with just 'make', or on Blue Gene/Q with 'make bgq'.  This will produce libhmpi.a and libhmpi-bgq.a, respectively.
 
 To compile an application to use HMPI, first you need to replace all #includes of mpi.h with hmpi.h.
 
