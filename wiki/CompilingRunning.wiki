@@ -30,6 +30,8 @@ export BG_SHAREDMEMSIZE=`expr $SM_SIZE + 65`
 
 Numbers are in units of megabytes for both variables.  The default value for BG_SHAREDMEMSIZE is 64 megabytes, which is used by the system and underlying MPI.  When configuring for HMPI, it is necessary to account for that plus the space the shared heap allocator will consume (ideally all the rest of memory).  Note that the application's heap area will be located in this shared memory region, so it is not necessary to leave regular memory aside for that purpose (only the program data segments, global variables, and stack remain in regular/private memory).
 
+There's one more variable of interest: SM_RANKS is used to specify the expected number of ranks.  The default is 64 on Blue Gene/Q and 16 everywhere else.  This affects how much memory is available to each rank: SM_SIZE / SM_RANKS.  So if you're running less than 64 ranks on Blue Gene/Q, you may want to change it so there's more memory available.
+
 When running an application, the shared heap allocator creates a file /dev/shm/hmpismfile on each node (/dev/shm is normally a tmpfs mount).  Upon normal termination, this file gets cleaned up automatically.  However, if the application segfaults or is killed using CTRL+C, that file will likely be left behind.  On LC systems (e.g., Cab) this can be cleaned up using the following command:
 
 {{{
