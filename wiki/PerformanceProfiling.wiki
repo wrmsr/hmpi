@@ -56,18 +56,29 @@ There's also a PROFILE_COUNTER type you can use to count/measure arbitrary thing
 
 Just adding the above profiling code won't cause anything to happen, some defines are needed to turn profiling on.  The rationale is that the profiling code can be left in place, and easily enabled/disabled either in the code, on the command line, in a Makefile, etc.  In compiler command line option form:
 
-Basic timing:
 -D_PROFILE=1
 
-Use PAPI counters:
--D_PROFILE_PAPI_EVENTS=1
+==Using PAPI Counters ==
 
-If you turn on PAPI counters, two things need to be dealt with:
-
-1. Add -I$(PAPI)/include to the compile command line, and -L$(HMPI)/lib -lpapi to the link command line, where $(PAPI) is set to the PAPI installation directory: on LC systems, use PAPI=/usr/local/tools/papi.
+To enable the use of PAPI counters:
+ 
+1. Add -D_PROFILE_PAPI_EVENTS=1 -I$(PAPI)/include to the compile command line, and -L$(HMPI)/lib -lpapi to the link command line, where $(PAPI) is set to the PAPI installation directory: on LC systems, use PAPI=/usr/local/tools/papi.
 
 2. The profile code expects an environment variable PROFILE_PAPI_EVENTS to be set.  It should be a space separated list of PAPI counter names as shown by the papi_avail, papi_native_avail, and papi_event_chooser programs.  You'll get an error if you run without the environment variable set.  For example:
 
 export PROFILE_PAPI_EVENTS="PAPI_L1_TCM PAPI_L2_TCM"
 
 PROFILE_PAPI_EVENTS="PAPI_L1_TCM PAPI_L2_TCM" srun -N 1 -n 2 ./NPhmpi
+
+For each profile timer variable declared, separate counts of the requested PAPI events will be maintained.  When printing profiling information using PROFILE_TIMER_SHOW, an additional line will be printed for each event.  For example:
+
+TIME             app cnt 4096    time 166048071.376866 ms total  40539.079926 ms avg
+PAPI          PAPI_L1_DCM 1656120674540 total  404326336.558 avg
+PAPI          PAPI_L1_ICM 16691788971 total    4075143.792 avg
+PAPI          PAPI_L1_LDM 1267979023371 total  309565191.253 avg
+PAPI          PAPI_L1_STM 404833440140 total   98836289.097 avg
+TIME       comm_pack cnt 119808000 time 1970690.272356 ms total      0.016449 ms avg
+PAPI          PAPI_L1_DCM 127710384319 total       1065.959 avg
+PAPI          PAPI_L1_ICM  726181455 total          6.061 avg
+PAPI          PAPI_L1_LDM 32928441475 total        274.843 avg
+PAPI          PAPI_L1_STM 95508124299 total        797.177 avg
