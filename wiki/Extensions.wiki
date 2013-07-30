@@ -12,7 +12,7 @@ This function translates a given {{{comm}}} and {{{rank}}} to a node-specific ra
 
 == Testing for shared heap memory ==
 
-To determine if a given address resides in the shared heap memory region, use the following {{{IS_SM_BUF}}} macro.  For example{
+To determine if a given address resides in the shared heap memory region, use the following {{{IS_SM_BUF}}} macro.  For example:
 
 {{{
 if(!IS_SM_BUF(ptr)) {
