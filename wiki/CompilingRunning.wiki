@@ -50,6 +50,22 @@ srun -N $SLURM_NNODES --tasks-per-node=1 rm /dev/shm/hmpismfile
 
 Yet again, Blue Gene/Q is different.  First off, the above command probably won't work.  However it doesn't seem necessary, as the OS on the compute nodes appears to clean up the shared memory file regardless of how the application terminates.  In other words, the above issue doesn't apply to Blue Gene/Q, at least on the LC systems.
 
+=== Systems that randomize addresses returned by mmap() ===
+
+Some Linux distributions default to returning randomizing addresses from mmap(), apparently for security purposes.  This causes the shared heap allocator to abort during initialization, with the following error:
+
+{{{
+ERROR sm_malloc.c:293 sm_region limit 7f45ef6xxxxx doesn't match computed limit  7f45exxxxxxx
+}}}
+
+Note that this error can also be caused by a stale shared memory file (see above).  By default HMPI relies on a quirk where mmap() will return the same address on each MPI rank, since they are all the exact same program.  Randomizing the addresses returned by mmap() breaks this.  The fix is to add this macro to the compile line:
+
+{{{
+-DUSE_PROC_MAPS=1
+}}}
+
+This enables code that will parse /proc/<pid>/maps to find a hole big enough for the desired mmap region, then specify the address of that hole to mmap.  So far it appears that this is sufficient for discovering the same address to map the shared memory region to on all MPI ranks in a node.
+
 
 == Impact of using a Shared Heap Allocator ==
 
