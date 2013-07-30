@@ -8,7 +8,7 @@ With a shared heap it becomes much more important for determining whether some r
 void HMPI_Comm_node_rank(HMPI_Comm comm, int rank, int* node_rank)
 }}}
 
-This function translates a given {{{comm}}} and {{{rank}}} to a node-specific rank or ID.  If the specified rank is on the same node, {{{node_rank}}} is set to a value {{{0 <= node_rank < NUM_RANKS_ON_THIS_NODE}}}.  Each rank will be mapped to a node_rank value that is unique to its node.
+This function translates a given {{{comm}}} and {{{rank}}} to a node-specific rank or ID.  If the specified rank is on the same node, {{{node_rank}}} is set to a value {{{0 <= node_rank < NUM_RANKS_ON_THIS_NODE}}}.  Each rank will be mapped to a node_rank value that is unique to its node.  Otherwise, if {{{rank == MPI_ANY_SOURCE}}}, {{{node_rank}}} is set to {{{MPI_ANY_SOURCE}}}, and for any other value it is set to {{{MPI_UNDEFINED}}}.
 
 == Testing for shared heap memory ==
 
