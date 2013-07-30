@@ -1,0 +1,24 @@
+#summary HMPI-specific extensions to MPI
+
+== Rank Locality ==
+
+With a shared heap it becomes much more important for determining whether some rank is located in the same node or not (and thus safe to share memory with).  HMPI adds the following function:
+
+{{{
+void HMPI_Comm_node_rank(HMPI_Comm comm, int rank, int* node_rank)
+}}}
+
+This function translates a given {{{comm}}} and {{{rank}}} to a node-specific rank or ID.  If the specified rank is on the same node, {{{node_rank}}} is set to a value {{{0 <= node_rank < NUM_RANKS_ON_THIS_NODE}}}.  Each rank will be mapped to a node_rank value that is unique to its node.
+
+== Testing for shared heap memory ==
+
+To determine if a given address resides in the shared heap memory region, use the following {{{IS_SM_BUF}}} macro.  For example{
+
+{{{
+if(!IS_SM_BUF(ptr)) {
+    sm_ptr = malloc(size);
+    memcpy(sm_ptr, ptr, size);
+} else {
+    sm_ptr = ptr;
+}
+}}}
