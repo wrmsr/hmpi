@@ -6,6 +6,10 @@ First, grab the source code, either one of the tarballs or doing an SVN checkout
 
 [https://code.google.com/p/hmpi/source/browse/#svn%2Frelease]
 
+Latest direct link:
+
+[https://hmpi.googlecode.com/svn/release/hmpi-072913.tar.gz]
+
 To download, select the desired file and use the 'View raw file' link under File Info on the right.
 
 
