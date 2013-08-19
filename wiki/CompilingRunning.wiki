@@ -46,6 +46,8 @@ Numbers are in units of megabytes for both variables.  The default value for BG_
 
 There's one more variable of interest: SM_RANKS is used to specify the expected number of ranks.  The default is 64 on Blue Gene/Q and 16 everywhere else.  This affects how much memory is available to each rank: SM_SIZE / SM_RANKS.  So if you're running less than 64 ranks on Blue Gene/Q, you may want to change it so there's more memory available.
 
+The SM_SIZE and SM_RANKS environment variables work on all platforms.  On non-BGQ systems, HMPI currently defaults to SM_SIZE=524288 and SM_RANKS=16 (creating a heap of size SM_SIZE/SM_RANKS=32gb).  These variables may need to be adjusted accordingly for your system.  SM_RANKS should be set to the number of cores (or less, if running fewer MPI ranks).  SM_SIZE should be set as large as possible, ideally large enough that each rank has a heap region equal to the size of physical memory.
+
 When running an application, the shared heap allocator creates a file /dev/shm/hmpismfile on each node (/dev/shm is normally a tmpfs mount).  Upon normal termination, this file gets cleaned up automatically.  However, if the application segfaults or is killed using CTRL+C, that file will likely be left behind.  On slurm-based systems (i.e., LC) this can be cleaned up using the following command when running either in a batch script or interactively:
 
 {{{
