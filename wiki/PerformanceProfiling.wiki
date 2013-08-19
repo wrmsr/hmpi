@@ -60,7 +60,9 @@ There's also a PROFILE_COUNTER type you can use to count/measure arbitrary thing
 
 Just adding the above profiling code won't cause anything to happen, some defines are needed to turn profiling on.  The rationale is that the profiling code can be left in place, and easily enabled/disabled either in the code, on the command line, in a Makefile, etc.  In compiler command line option form:
 
+{{{
 -D_PROFILE=1
+}}}
 
 ==Using PAPI Counters ==
 
@@ -69,11 +71,22 @@ To enable the use of PAPI counters:
 
 1. Add -D_PROFILE_PAPI_EVENTS=1 -I$(PAPI)/include to the compile command line, and -L$(HMPI)/lib -lpapi to the link command line, where $(PAPI) is set to the PAPI installation directory: on LC systems, use PAPI=/usr/local/tools/papi.
 
+1. Add flags to the compile and linker command lines.  Macros are necessary to enable the profiling-specfic code, then more flags to bring in the PAPI includes and library:
+
+{{{
+export PAPI=/usr/local/tools/papi
+
+mpicc -D_PROFILE=1 -D_PROFILE_PAPI_EVENTS=1 -I$(PAPI)/include -c foo.c
+mpicc -L$(HMPI)/lib -lpapi foo.o -o foo
+}}}
+
 2. The profile code expects an environment variable PROFILE_PAPI_EVENTS to be set.  It should be a space separated list of PAPI counter names as shown by the papi_avail, papi_native_avail, and papi_event_chooser programs.  You'll get an error if you run without the environment variable set.  For example:
 
+{{{
 export PROFILE_PAPI_EVENTS="PAPI_L1_TCM PAPI_L2_TCM"
 
 PROFILE_PAPI_EVENTS="PAPI_L1_TCM PAPI_L2_TCM" srun -N 1 -n 2 ./NPhmpi
+}}}
 
 For each profile timer variable declared, separate counts of the requested PAPI events will be maintained.  When printing profiling information using PROFILE_TIMER_SHOW, an additional line will be printed for each event.  For example:
 
