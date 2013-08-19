@@ -68,6 +68,7 @@ Just adding the above profiling code won't cause anything to happen, some define
 
 To enable the use of PAPI counters:
  
+
 1. Add flags to the compile and linker command lines.  Macros are necessary to enable the profiling-specfic code, then more flags to bring in the PAPI includes and library:
 
 {{{
