@@ -45,3 +45,19 @@ Many of these routines are modeled after (and often implemented by) the [http://
 On x86, the lock routines are implemented using the well-known [MCS lock algorithms].  These have slightly better scalability (i.e., better performance when many cores are spinning to acquire the lock) than a simple spin-lock, and provide a FIFO ordering guarantee.  That is, if process A gets in line to acquire the lock before process B, process A will always acquire the lock first.  Without FIFO ordering, we found that HMPI performance varied widely due to long delays occasionally caused by lock starvation.
 
 On Blue Gene/Q we found no benefit to using the MCS lock algorithms, so instead we use the PowerPC A2-specific L2 lock primitives, which are faster than the standard PowerPC {{{lwarx}}}/{{{stwcx}}} instructions.
+
+
+= [https://code.google.com/p/hmpi/source/browse/hmpi/hmpi.h hmpi.h] =
+
+This is the main HMPI header file.  Applications should include {{{hmpi.h}}} instead of the standard {{{mpi.h}}} when compiling to use HMPI.  All of the standard MPI routines, types, and constants implemented by HMPI are designated with an {{{HMPI_}}} prefix.  For each of the MPI routines HMPI implements, a corresponding macro renaming the MPI call to the HMPI call.
+
+Collectives are currently handled differently, as we do not implement any of them directly.  Instead, there is one macro for each MPI collective which passes the call down to the underlying MPI, dereferencing the HMPI communicator object properly along the way.
+
+HMPI defines its own versions of user-visible MPI objects:  {{{HMPI_Comm}}}, {{{HMPI_COMM_WORLD}}}, {{{HMPI_Request}}}, {{{HMPI_Status}}}, etc.
+
+Several internal data structures are also defined here, as they are referenced by the public-facing MPI objects.  {{{HMPI_Item}}} is a simple base type for using objects as linked list elements.  For any structure that will be used as a linked list, its first member variable will be an instance of {{{HMPI_Item}}}.  This allows type casting back and forth between {{{HMPI_Item}}} and the appropriate structure type.  {{{HMPI_Request_list}}} implements a linked list of {{{HMPI_Item}}} objects/elements.  Elements are single-linked while both a head and tail are kept track of.
+
+Again for internal use, a number of macros are defined.
+
+
+
