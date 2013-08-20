@@ -1,0 +1,47 @@
+#summary HMPI Code Design
+
+HMPI is a relatively small codebase, consisting of the following files:
+
+|| File Name || Purpose ||
+|| [https://code.google.com/p/hmpi/source/browse/hmpi/error.h error.h] || Macros for warning and error reporting. ||
+|| [https://code.google.com/p/hmpi/source/browse/hmpi/lock.h lock.h] || Platform-specific primitives for locking and related atomic operations. ||
+|| [https://code.google.com/p/hmpi/source/browse/hmpi/hmpi.h hmpi.h] || User-visible header file defining (H)MPI interface. ||
+|| [https://code.google.com/p/hmpi/source/browse/hmpi/hmpi.c hmpi.c] || Initialization, shutdown, and communicator management. ||
+|| [https://code.google.com/p/hmpi/source/browse/hmpi/hmpi_p2p.c hmpi_p2p.c] || Point-to-point message matching, message passing, and ownership passing (give/take). ||
+|| [https://code.google.com/p/hmpi/source/browse/hmpi/hmpi_opi.c hmpi_opi.c] || Ownership Passing initialization and memory pools (alloc/free). ||
+
+Related but non-HMPI-specific files:
+
+profile.h        See [PerformanceProfiling]
+
+sm_malloc.c  See [SharedHeapAllocator]
+
+malloc.c        See [SharedHeapAllocator]
+
+= [https://code.google.com/p/hmpi/source/browse/hmpi/error.h error.h] =
+
+Contains two macros, {{{ERROR}}} and {{{WARNING}}}, used throughout the HMPI code.  {{{WARNING}}} prints a message prefixed with the file and line number from where it is called.  {{{ERROR}}} does the same, but then immediately aborts the program.
+
+= [https://code.google.com/p/hmpi/source/browse/hmpi/lock.h lock.h]  =
+
+Contains platform-specific implementation of an atomic lock (mutex), and some other atomic primitives:
+
+|| Function || Purpose ||
+|| STORE_FENCE || Ensure all prior memory writes are complete. ||
+|| LOAD_FENCE  || Ensure all prior memory reads are complete. ||
+|| FENCE            || Ensure all prior memory reads and writes are complete. ||
+|| CAS_PTR_BOOL || Compare-and-swap on a pointer value, evaluating to a boolean expression. ||
+|| CAS_PTR_VAL || Compare-and-swap evaluating to the previous value of the pointer. ||
+|| CAS_T_BOOL || Compare-and-swap an arbitrary type, evaluating to a boolean expression. ||
+|| FETCH_ADD32 || Fetch-and-add 32-bit integer value. ||
+|| FETCH_ADD64 || Fetch-and-add 64-but integer value. ||
+|| FETCH_STORE || Fetch-and-store a pointer value. ||
+|| LOCK_INIT || Initialize a lock (mutex). ||
+|| LOCK_ACQUIRE || Spin (block without yield) until a lock is acquired. ||
+|| LOCK_RELEASE || Release a lock. ||
+ 
+Many of these routines are modeled after (and often implemented by) the [http://gcc.gnu.org/onlinedocs/gcc-4.3.5/gcc/Atomic-Builtins.html Intel/GCC built-in atomic primtives].  In addition to ICC and GCC, they are also supported by XLC on Blue Gene/Q.
+
+On x86, the lock routines are implemented using the well-known [MCS lock algorithms].  These have slightly better scalability (i.e., better performance when many cores are spinning to acquire the lock) than a simple spin-lock, and provide a FIFO ordering guarantee.  That is, if process A gets in line to acquire the lock before process B, process A will always acquire the lock first.  Without FIFO ordering, we found that HMPI performance varied widely due to long delays occasionally caused by lock starvation.
+
+On Blue Gene/Q we found no benefit to using the MCS lock algorithms, so instead we use the PowerPC A2-specific L2 lock primitives, which are faster than the standard PowerPC {{{lwarx}}}/{{{stwcx}}} instructions.
