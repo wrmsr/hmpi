@@ -18,9 +18,11 @@ sm_malloc.c  See [SharedHeapAllocator]
 
 malloc.c        See [SharedHeapAllocator]
 
+
 = [https://code.google.com/p/hmpi/source/browse/hmpi/error.h error.h] =
 
 Contains two macros, {{{ERROR}}} and {{{WARNING}}}, used throughout the HMPI code.  {{{WARNING}}} prints a message prefixed with the file and line number from where it is called.  {{{ERROR}}} does the same, but then immediately aborts the program.
+
 
 = [https://code.google.com/p/hmpi/source/browse/hmpi/lock.h lock.h]  =
 
@@ -57,7 +59,15 @@ HMPI defines its own versions of user-visible MPI objects:  {{{HMPI_Comm}}}, {{{
 
 Several internal data structures are also defined here, as they are referenced by the public-facing MPI objects.  {{{HMPI_Item}}} is a simple base type for using objects as linked list elements.  For any structure that will be used as a linked list, its first member variable will be an instance of {{{HMPI_Item}}}.  This allows type casting back and forth between {{{HMPI_Item}}} and the appropriate structure type.  {{{HMPI_Request_list}}} implements a linked list of {{{HMPI_Item}}} objects/elements.  Elements are single-linked while both a head and tail are kept track of.
 
-Again for internal use, a number of macros are defined.
+Again for internal use, a number of macros are defined.  The most interesting is {{{IS_SM_BUF()}}}, which takes a pointer as an argument and evaluates to a boolean indicating whether the specified memory is part of the shared memory heap or not.  Each {{{HMPI_Request}}} has a type associated with it, defined by macros to indicate send/recv, HMPI (local) / MPI (remote), and receives with {{{MPI_ANY_SOURCE}}}.  In addition, each request has a state, either {{{ACTIVE}}} (message is in transit) or {{{COMPLETE}}} (message completed).  Finally, each request has a flag ({{{do_free}}}) for tracking what should be done with its associated message buffer when completed.  {{{DO_NOT_FREE}}} indicates a user buffer that should not be touched, while {{{DO_FREE}}} indicates a regular buffer that should be {{{free}}}'d.  {{{OPI_FREE}}} indicates the buffer should be returned to the memory pool via {{{OPI_Free}}}.
 
 
+= [https://code.google.com/p/hmpi/source/browse/hmpi/hmpi.c hmpi.c] =
 
+Contains HMPI initialization and communicator management code.  {{{HMPI_Init}}} calls {{{MPI_Init}}}, then sets up {{{HMPI_COMM_WORLD}}}.  Next, it allocates data structures representing incoming local messages and local receives.  Rank 0 on a node does the initialization, then shares the address of the data structures using node-local MPI broadcast.  A final world-wide barrier ensures all ranks have finished initializing before returning to the application.
+
+{{{HMPI_Finalize}}} has little work to do other than print any profiling variables and call {{{MPI_Finalize}}}.
+
+{{{init_communicator}}} does the work of creating an {{{HMPI_Comm}}}, given an {{{MPI_Comm}}}.  This routine fills in the HMPI-specific data structure elements.  Most importantly, for each communicator, we internally split it into sub-communicators, one for each node.  Various fields in the {{{HMPI_Comm}}} object are filled in based on this node-local communicator and are used for quick access to rank/size information throughout the HMPI codebase.
+
+HMPI implements the MPI communicator management routines using {{{init_communicator}}} and calling the equivalent MPI routines.
