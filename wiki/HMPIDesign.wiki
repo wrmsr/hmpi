@@ -44,7 +44,7 @@ Contains platform-specific implementation of an atomic lock (mutex), and some ot
  
 Many of these routines are modeled after (and often implemented by) the [http://gcc.gnu.org/onlinedocs/gcc-4.3.5/gcc/Atomic-Builtins.html Intel/GCC built-in atomic primtives].  In addition to ICC and GCC, they are also supported by XLC on Blue Gene/Q.
 
-On x86, the lock routines are implemented using the well-known [MCS lock algorithms].  These have slightly better scalability (i.e., better performance when many cores are spinning to acquire the lock) than a simple spin-lock, and provide a FIFO ordering guarantee.  That is, if process A gets in line to acquire the lock before process B, process A will always acquire the lock first.  Without FIFO ordering, we found that HMPI performance varied widely due to long delays occasionally caused by lock starvation.
+On x86, the lock routines are implemented using the well-known [http://www.cs.rochester.edu/research/synchronization/pseudocode/ss.html MCS lock algorithms].  These have slightly better scalability (i.e., better performance when many cores are spinning to acquire the lock) than a simple spin-lock, and provide a FIFO ordering guarantee.  That is, if process A gets in line to acquire the lock before process B, process A will always acquire the lock first.  Without FIFO ordering, we found that HMPI performance varied widely due to long delays occasionally caused by lock starvation.
 
 On Blue Gene/Q we found no benefit to using the MCS lock algorithms, so instead we use the PowerPC A2-specific L2 lock primitives, which are faster than the standard PowerPC {{{lwarx}}}/{{{stwcx}}} instructions.
 
