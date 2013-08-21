@@ -12,11 +12,11 @@ HMPI is a relatively small codebase, consisting of the following files:
 
 Related but non-HMPI-specific files:
 
-profile.h        See [PerformanceProfiling]
+profile.h        Profiling tools, see [PerformanceProfiling].
 
-sm_malloc.c  See [SharedHeapAllocator]
+sm_malloc.c  Shared memory heap allocator, see [SharedHeapAllocator].
 
-malloc.c        See [SharedHeapAllocator]
+malloc.c        dlmalloc, see [SharedHeapAllocator].
 
 
 = [https://code.google.com/p/hmpi/source/browse/hmpi/error.h error.h] =
@@ -71,3 +71,50 @@ Contains HMPI initialization and communicator management code.  {{{HMPI_Init}}} 
 {{{init_communicator}}} does the work of creating an {{{HMPI_Comm}}}, given an {{{MPI_Comm}}}.  This routine fills in the HMPI-specific data structure elements.  Most importantly, for each communicator, we internally split it into sub-communicators, one for each node.  Various fields in the {{{HMPI_Comm}}} object are filled in based on this node-local communicator and are used for quick access to rank/size information throughout the HMPI codebase.
 
 HMPI implements the MPI communicator management routines using {{{init_communicator}}} and calling the equivalent MPI routines.
+
+= [https://code.google.com/p/hmpi/source/browse/hmpi/hmpi_p2p.c hmpi_p2p.c] =
+
+Point-to-point messaging code, the bulk of HMPI, is located in this file.
+
+
+== Front-end Routines ==
+
+All forms of HMPI Send and Receive (e.g., {{{HMPI_Send}}}, {{{HMPI_Irecv}}} are located in this file.  In any of these routines, a check is first performed to determine whether the message source (receive) or destination (send) is within the same node (local) or not (remote).    Depending on whether the message is local or remote, and whether it is non-blocking, several things can happen ({{{MPI_ANY_SOURCE}}} receives have additional special handling, see below):
+
+*Remote, blocking:*  In this case, a non-blocking form of the respective send or receive is posted to the MPI layer.  Even in the blocking case, non-blocking MPI calls are need to alternately make message progress (see next section) in both the HMPI and MPI layers.  However, since the HMPI-level call is expected to wait for message completion, creation of an {{{HMPI_Request}}} object is not necessary when the message is also remote.
+
+*Remote, non-blocking:*  A send or receive is posted to the MPI layer, and an {{{HMPI_Request}}} object is created and returned to the user so that the message can be completed later.  For performance reasons, the first element of {{{HMPI_Request}}} is a union between {{{HMPI_Item}}} and {{{MPI_Request}}}.  We know that the {{{HMPI_Request}}} will never be placed on a linked list in this case, and that better performance is achieved if the associated {{{MPI_Request}}} is the first element of {{{HMPI_Request}}}.
+
+*Local*: Both send and receive, regardless of whether they are blocking or non-blocking, have an auxiliary function for handling local messages ({{{HMPI_Local_isend}}} and {{{HMPI_Local_irecv}}}.  Local messages are always handled as if they were non-blocking, and always create an {{{HMPI_Request}}} object that gets added to an appropriate message queue.  Receives go to the local receive list, while sends are added to the incoming message queue of the destination rank.  Blocking forms of local send/receive poll progress until the message is completed.
+
+The various non-blocking completion routines ({{{MPI_Test*}}}, {{{MPI_Wait*}}}) behave similarly, polling {{{HMPI_Progress}}} (see next section) and testing for message completion.
+
+== Message Progress and Matching ==
+
+Like most MPI implementations, HMPI has a polling progress architecture.  That is, there is a single function {{{HMPI_Progress}}}, that attempts to match incoming sends to local receives and then transfer the message data.  Each rank has a queue of local receives, and a queue of incoming sends.  The receive queue is private, while the incoming send queue is shared and protected by a lock.  Any local rank may append a send message to any other local rank's send queue.  {{{HMPI_Progres}}} iterates over the requests in the receive queue, attempting to find a matching (same rank, tag, communicator) message in its incoming send queue.  When a matching send is found, the send and receive requests are removed from their corresponding queues, the data is transferred, and both messages are marked as completed.
+
+To meet MPI's match ordering rules, there are actually two incoming send queues per rank.  One is private, and one is shared.  Other ranks add their send requests to the lock-protected shared queue.  When {{{HMPI_Progress}}} is called, it uses the {{{update_send_reqs}}} routine to drain the shared send queue into the private send queue.  The matching loop only attempts to match against requests in the private send queue.
+
+Too see why, consider the case where a rank posts local receive A, then another local receive B.  Also assume that there is only the one shared send queue.  Now, {{{HMPI_Progress}}} is called and the matching loop first looks for an incoming send that matches receive A.  No sends are in the queue, so no match is made.  After this, but before the loop can check for matches for receive B, a sender inserts send request X with a (rank, tag, communicator) that matches both receive A and B.  MPI matching rules require that this send be matched with A, but now receive B will be checked and successfully matched with send X.  The private queue ensures that this cannot happen; the loop that checks all receives for matches against a list of incoming sends that cannot be changed.
+
+See the section Data Transfer section below for the protocols use to copy data from the send to the receive.
+
+== {{{MPI_ANY_SOURCE}}} ==
+
+Receives specified with MPI_ANY_SOURCE require all sorts of special handling, as they may be matched with either a local (HMPI-level) or remote (MPI-level) message.  In fact, {{{MPI_ANY_SOURCE}}} receives are treated as being both local and remote at the same time -- the {{{HMPI_Request}}} object is added to the local receive list, while a receive is posted to the underlying MPI.  Completion functions test the receive as if it were a remote receive, completing the message there if possible.  If the progress routine makes a local match, it attempts to cancel the receive posted to the MPI layer.  If the cancel succeeds, data transfer proceeds as usual with the normal match.  Otherwise, the cancel failed, meaning MPI has already matched a message -- we complete the MPI_ANY_SOURCE receive using the MPI layer and ignore the local match.
+
+
+= Data Transfer Protocols =
+
+Once a message is matched, the data needs to be transferred from the send buffer to the receive buffer.  HMPI has three different protocols for transferring data depending on the message size.  More detail on these protocols can be found in the [http://htor.inf.ethz.ch/publications/index.php?pub=173 Hybrid MPI: Efficient Message Passing for Multi-core Systems] paper.
+
+*Immediate:* If the message is less than 256 bytes (may change depending on platform), the sender copies the message data into an inline buffer located in the {{{HMPI_Request}}} object.  The receiver copies the data using the same control flow path as the *Single Copy* protocol.
+
+*Synergistic:* If the send buffer is located in shared memory (i.e., the heap) and is larger than a platform-specific threshold (8kb on x86, 16kb on BG/Q), the receive enters the synergistic protocol and sets a flag on the matching send request indicating so.  Next, the receiver enters a loop copying one block of the message at a time using {{{memcpy}}} until the entire message has been transferred.  If the sender polls its send request and sees that the receiver has set the synergistic protocol flag, it also enters a similar block copy loop until the message transfer is completed.
+
+*Single Copy:* If the other protocols are not suitable to use, data is transferred by the receiver using a single {{{memcpy}}} call.
+
+
+= Ownership Passing =
+
+OPI Give and Take messages are matched in the same manner and using the same queues as MPI messages, but no data transfer occurs--only the pointer address itself is copied over.  In fact, {{{OPI_Give}}} and {{{OPI_Take}}} are just syntactic sugar that encourage the producer-consumer, single-owner ownership passing semantics.  Ownership passing is possible just by transferring pointers using HMPI Send and Receive.
