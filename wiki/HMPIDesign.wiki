@@ -104,7 +104,7 @@ See the section Data Transfer section below for the protocols use to copy data f
 Receives specified with MPI_ANY_SOURCE require all sorts of special handling, as they may be matched with either a local (HMPI-level) or remote (MPI-level) message.  In fact, {{{MPI_ANY_SOURCE}}} receives are treated as being both local and remote at the same time -- the {{{HMPI_Request}}} object is added to the local receive list, while a receive is posted to the underlying MPI.  Completion functions test the receive as if it were a remote receive, completing the message there if possible.  If the progress routine makes a local match, it attempts to cancel the receive posted to the MPI layer.  If the cancel succeeds, data transfer proceeds as usual with the normal match.  Otherwise, the cancel failed, meaning MPI has already matched a message -- we complete the MPI_ANY_SOURCE receive using the MPI layer and ignore the local match.
 
 
-= Data Transfer Protocols =
+== Data Transfer Protocols ==
 
 Once a message is matched, the data needs to be transferred from the send buffer to the receive buffer.  HMPI has three different protocols for transferring data depending on the message size.  More detail on these protocols can be found in the [http://htor.inf.ethz.ch/publications/index.php?pub=173 Hybrid MPI: Efficient Message Passing for Multi-core Systems] paper.
 
@@ -115,6 +115,16 @@ Once a message is matched, the data needs to be transferred from the send buffer
 *Single Copy:* If the other protocols are not suitable to use, data is transferred by the receiver using a single {{{memcpy}}} call.
 
 
-= Ownership Passing =
+== Ownership Passing ==
 
-OPI Give and Take messages are matched in the same manner and using the same queues as MPI messages, but no data transfer occurs--only the pointer address itself is copied over.  In fact, {{{OPI_Give}}} and {{{OPI_Take}}} are just syntactic sugar that encourage the producer-consumer, single-owner ownership passing semantics.  Ownership passing is possible just by transferring pointers using HMPI Send and Receive.
+OPI Give and Take messages are matched in the same manner and using the same queues as MPI messages, but no data transfer occurs--only the pointer address itself is copied over.  In fact, {{{OPI_Give}}} and {{{OPI_Take}}} are just syntactic sugar that encourage the producer-consumer, single-owner ownership passing semantics.  Ownership passing is possible just by transferring pointers using HMPI Send and Receive.  With a shared heap in place, ownership mostly works by default.
+
+= [https://code.google.com/p/hmpi/source/browse/hmpi/hmpi_opi.c hmpi_opi.c] =
+
+This file contains the implementations of {{{OPI_Alloc}}} and {{{OPI_Free}}}, which represent the memory pool functionality detailed in our paper, [http://htor.inf.ethz.ch/publications/index.php?pub=161 Ownership Passing: Efficient Distributed Memory Programming on Multi-core Systems].  Additionally, an {{{OPI_Init}} routine is located here for doing OPI-specific initialization, and is called only from {{{HMPI_Init}}} -- users should not call this routine.
+
+{{{OPI_Alloc}}} allocates memory, but first searches a linked list (the memory pool) in first-fit fashion for a to reuse, avoiding an expensive {{{malloc}}}/{{{memalign}}} call.  Each rank gets its own memory pool, and always searches its own pool for a buffer.
+
+When buffers are freed by calling {{{OPI_Free}}}, they are added back into a memory pool instead of releasing the memory back to the OS.  Which memory pool depends on how this code is configured:  macros near the top of the file select receiver-side pools ({{{RECVER_POOL}}}, the default) or sender-side pools ({{{SENDER_POOL}}}).  When receiver pools are enabled, {{{OPI_Free}}} _prepends_ its buffer to the local memory pool list.  For sender pools, the buffer is returned to the pool of the rank that originally allocated the memory.
+
+If sender-side pools are enabled, locks are enabled in both {{{OPI_Alloc}}} and {{{OPI_Free}}} to synchronize access.  Each memory pool (one per rank) gets its own lock.
