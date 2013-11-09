@@ -1771,8 +1771,11 @@ int HMPI_Send(void* buf, int count, MPI_Datatype datatype, int dest, int tag, HM
     //MPI will then handle PROC_NULL, so we don't need to check for it.
     int dest_node_rank;
     HMPI_Comm_node_rank(comm, dest, &dest_node_rank);
+    //double diff_hmpi,start_hmpi ,start_mpi , diff_mpi, start_progress, start_progress2 ;
+    //start_mpi = MPI_Wtime();
 
     if(dest_node_rank != MPI_UNDEFINED) {
+	//printf("HSEND() reached local hmpi_send() path target : %d tag : %d count : %d \n", dest, tag, count);
         HMPI_Request req = acquire_req();
 
         HMPI_Local_isend(buf, count, datatype, dest_node_rank, tag, comm, req);
@@ -1783,13 +1786,14 @@ int HMPI_Send(void* buf, int count, MPI_Datatype datatype, int dest, int tag, HM
 
         do {
             HMPI_Progress(recv_reqs_head, local_list, shared_list);
+			//printf("hmpi_progress()... \n");
         } while(HMPI_Progress_send(req) != HMPI_REQ_COMPLETE);
 
         release_req(req);
     } else {
         MPI_Request req;
         int flag = 0;
-
+        //printf("NSEND() reached MPI_send() path target : %d tag : %d count : %d \n", dest, tag, count);
         //Can't use MPI_Send here :(
         //Deadlocks are possible if local progress isn't made.
         MPI_Isend(buf, count, datatype, dest, tag, comm->comm, &req);
@@ -1798,10 +1802,22 @@ int HMPI_Send(void* buf, int count, MPI_Datatype datatype, int dest, int tag, HM
         HMPI_Request_list* local_list = &g_tl_send_reqs;
         HMPI_Request_list* shared_list = g_tl_my_send_reqs;
 
+        //start_hmpi = MPI_Wtime() ;
+        //diff_mpi =  start_hmpi - start_mpi ;
+        //diff_hmpi = 0 ;
         do {
+            //start_progress = MPI_Wtime() ;
             HMPI_Progress(recv_reqs_head, local_list, shared_list);
+            //start_progress2 = MPI_Wtime() ;
+            //diff_hmpi += start_progress2 - start_progress ;
             MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
+            //diff_mpi += MPI_Wtime() -  start_progress2 ;
         } while(flag == 0);
+        //printf("SEND dest rank: %d  hmpi: %f  mpi: %f\n", dest, diff_hmpi/1000000 ,diff_mpi/1000000); 
+       // do {
+       //     HMPI_Progress(recv_reqs_head, local_list, shared_list);
+       //     MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
+       // } while(flag == 0);
 
 #ifdef HMPI_STATS
         int type_size;
@@ -1943,10 +1959,12 @@ int HMPI_Recv(void* buf, int count, MPI_Datatype datatype, int source, int tag, 
     //MPI will then handle PROC_NULL, so we don't need to check for it.
     int src_node_rank;
     HMPI_Comm_node_rank(comm, source, &src_node_rank);
-
+    //Todo - test measurement times - remove later
+    //double diff_hmpi,start_hmpi ,start_mpi , diff_mpi, start_progress, start_progress2 ;
+    //start_mpi = MPI_Wtime(); 
     if(src_node_rank != MPI_UNDEFINED) {
         HMPI_Request req = acquire_req();
-
+	//printf("HRECV() reached local hmpi_recv() path source : %d tag : %d\n", source, tag);
         //Yes, Local_irecv uses source, not src_node_rank.
         HMPI_Local_irecv(buf, count, datatype, source, tag, comm, req);
         //HMPI_Wait(&req, status);
@@ -1957,6 +1975,7 @@ int HMPI_Recv(void* buf, int count, MPI_Datatype datatype, int source, int tag, 
 
         do {
             HMPI_Progress(recv_reqs_head, local_list, shared_list);
+			//printf("hmpi_progress()... \n");
         } while(get_reqstat(req) != HMPI_REQ_COMPLETE);
 
         if(status != HMPI_STATUS_IGNORE) {
@@ -1971,18 +1990,33 @@ int HMPI_Recv(void* buf, int count, MPI_Datatype datatype, int source, int tag, 
     } else {
         MPI_Request req;
         int flag = 0;
-
+	//printf("NRECV() reached MPI_recv() path source : %d tag : %d\n", source, tag);
         MPI_Irecv(buf, count, datatype, source, tag, comm->comm, &req);
 
         HMPI_Item* recv_reqs_head = &g_recv_reqs_head;
         HMPI_Request_list* local_list = &g_tl_send_reqs;
         HMPI_Request_list* shared_list = g_tl_my_send_reqs;
-
+        
         MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
+        //start_hmpi = MPI_Wtime() ;
+        //diff_mpi =  start_hmpi - start_mpi ;
+        //diff_hmpi = 0 ;
+
         while(flag == 0) {
+            //start_progress = MPI_Wtime() ;
             HMPI_Progress(recv_reqs_head, local_list, shared_list);
+            //start_progress2 = MPI_Wtime() ;
+            //diff_hmpi += start_progress2 - start_progress ;
             MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
+            //diff_mpi += MPI_Wtime() -  start_progress2 ;
         }
+        //printf("RECV source rank: %d  hmpi: %f  mpi: %f\n",source, diff_hmpi/1000000 ,diff_mpi/1000000);
+
+        //MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
+        //while(flag == 0) {
+        //    HMPI_Progress(recv_reqs_head, local_list, shared_list);
+        //    MPI_Test(&req, &flag, MPI_STATUS_IGNORE);
+        //}
     }
 
 #ifdef HMPI_STATS
@@ -2059,15 +2093,18 @@ int HMPI_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype,
                 HMPI_Comm comm, HMPI_Status *status)
 {
     HMPI_Request req;
-
+    //printf("HMPI_SENDRECV()  source: %d \n",source);
     //Irecv/Send/Wait is chosen intentionally: this creates the possibility
     // for sender-side acceleration in the synergistic protocol.  Doing
     // Isend/Recv/Wait would be less likely to do so since it'll only poll
     // the recv until that completes, then the send.  Irecv/Send polls both.
     HMPI_Irecv(recvbuf, recvcount, recvtype, source, recvtag, comm, &req);
+    //printf("HMPI_SENDRECV()  after Irecv() \n");
     HMPI_Send(sendbuf, sendcount, sendtype, dest, sendtag, comm);
+    //printf("HMPI_SENDRECV()  after Send() \n");
 
     HMPI_Wait(&req, status);
+    //printf("HMPI_SENDRECV()  exit() \n");
     return MPI_SUCCESS;
 }
 

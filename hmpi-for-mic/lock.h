@@ -334,7 +334,10 @@ typedef struct lock_t {
 #endif
 
 
-#ifdef __x86_64__ //Better x86 versions
+#ifdef __MIC__ && __x86_64__ //Better x86 versions
+#define STORE_FENCE() __asm__ volatile ("":::"memory")
+#define LOAD_FENCE() __asm__ volatile ("":::"memory")
+#elif defined(__x86_64__) //Better x86 versions
 #define STORE_FENCE() __asm__ volatile ("sfence")
 #define LOAD_FENCE() __asm__ volatile ("lfence")
 #else //Default GCC builtins
