@@ -80,7 +80,6 @@
 #endif
 
 #ifdef USE_NUMA
-#include <numa.h>
 #endif
 
 
@@ -406,8 +405,16 @@ void print_hwloc(void)
 //MPI communicator.  All other values will be filled in based on the MPI comm.
 void init_communicator(HMPI_Comm comm)
 {
+    /*if(comm->comm == MPI_COMM_NULL){
+   	  printf("DEBUG_ HELLO INIT_COMM comm NULL! \n");
+    } else {
+   	  printf("DEBUG_ HELLO INIT_COMM comm good   \n");
+    }*/
+     
     //Fill in the cached comm variables.
+    //printf("DEBUG_HMPIComm_ init_communcitor(c) [inside]  \n");
     MPI_Comm_rank(comm->comm, &comm->comm_rank);
+    //printf("DEBUG_HMPIComm_ init_communcitor(c) [after] rank:%d \n",comm->comm_rank);
     //MPI_Comm_size(comm, &comm->comm_size);
 
 
@@ -446,7 +453,14 @@ void init_communicator(HMPI_Comm comm)
                 &comm->node_comm);
     }
 
+    /*printf("DEBUG_HMPIComm_ node_rank init()  rank:%d \n",comm->comm_rank);
+    if(comm->node_comm == MPI_COMM_NULL){
+   	  printf("DEBUG_ INIT_NODE_COMM Node_comm NULL!  rank:%d \n",comm->comm_rank);
+    }else {
+   	  printf("DEBUG_ INIT_NODE_COMM Node_comm is good...  rank:%d \n",comm->comm_rank);
+    }*/
     MPI_Comm_rank(comm->node_comm, &comm->node_rank);
+    //printf("DEBUG_HMPIComm_  node_rank init()  [after] rank:%d \n",comm->comm_rank);
     MPI_Comm_size(comm->node_comm, &comm->node_size);
 
     //Translate rank 0 in the node comm into its rank in the main comm.
@@ -757,15 +771,45 @@ int HMPI_Cart_sub(HMPI_Comm comm, int* remain_dims, HMPI_Comm* newcomm)
 int HMPI_Comm_create(HMPI_Comm comm, MPI_Group group, HMPI_Comm* newcomm)
 {
     //Allocate a new HMPI communicator.
-    HMPI_Comm c = MALLOC(HMPI_Comm_info, 1);
+    HMPI_Comm c = (HMPI_Comm_info*)MALLOC(HMPI_Comm_info, 1);
+    //printf("DEBUG_HMPIComm_create \n");
 
     //Create an MPI comm from the group.
     MPI_Comm_create(comm->comm, group, &c->comm);
+     
+    //dummy test
+    /**MPI_Comm_rank(comm->comm, &comm->comm_rank);
+    if(comm->comm == MPI_COMM_NULL){
+          printf("DEBUG_ HMPI_COMM_CREATE comm NULL! rank:%d \n",comm->comm_rank);
+    } else {
+          printf("DEBUG_  HMPI_COMM_CREATE comm good rank:%d  \n",comm->comm_rank);
+    }*/
+
+    if(c->comm == MPI_COMM_NULL){
+          //printf("DEBUG_ NEW_HMPI_COMM_CREATE comm NULL! return from HMPI_Comm_create() \n");
+          //printf("DEBUG_ NEW_HMPI_COMM_CREATE comm NULL! MY_rank:");
+          //MPI_Comm_rank(c->comm, &c->comm_rank);
+          //printf(" :%d \n",c->comm_rank);
+          *newcomm = HMPI_COMM_NULL ;
+          return MPI_ERR_COMM;
+    } /*else {
+          printf("DEBUG_  NEW_HMPI_COMM_CREATE comm good   \n");
+          printf("DEBUG_ NEW_HMPI_COMM_CREATE comm good MY_rank:");
+          MPI_Comm_rank(c->comm, &c->comm_rank);
+          printf(" :%d \n",c->comm_rank);
+    }*/
+
 
     //Initialize the rest of the HMPI comm.
+    //printf("DEBUG_HMPIComm_create init_communicator() [after] \n");
     init_communicator(c);
 
+    //HMPI_Comm cm = (HMPI_Comm_info*)MALLOC(HMPI_Comm_info, 0);
+    //cm->comm = MPI_COMM_WORLD;
+    //init_communicator(cm);
+    
     *newcomm = c;
+    //*newcomm = cm;
     return MPI_SUCCESS;
 }
 
@@ -789,17 +833,48 @@ int HMPI_Comm_dup(HMPI_Comm comm, HMPI_Comm* newcomm)
 int HMPI_Comm_free(HMPI_Comm* comm)
 {
     HMPI_Comm c = *comm;
-
+    //printf("HMPI comm_free() \n");
     //Free malloc'd resources on the comm.
+    /*if(&c->net_comm != MPI_COMM_NULL){
+         printf("HMPI comm net_comm NOT NULL  \n");
+         //MPI_Comm_free(&c->net_comm);
+    }
 
+    
+    if(&c->node_comm != MPI_COMM_NULL){
+         printf("HMPI comm node_comm NOT NULL  \n");
+         //MPI_Comm_free(&c->node_comm);
+    }
+
+    if(&c->comm != MPI_COMM_NULL){
+         printf("HMPI comm comm NOT NULL  \n");
+         //MPI_Comm_free(&c->comm);
+    }*/
+    //printf("FREE  [enter]  \n");
     //Free all the MPI communicators (main, node, net, numa).
-    MPI_Comm_free(&c->net_comm);
-    MPI_Comm_free(&c->node_comm);
-    MPI_Comm_free(&c->comm);
+    if(c->comm != MPI_COMM_NULL){
+        //printf("FREE HMPI comm  NOT NULL [before]  \n");
+    	MPI_Comm_free(&c->comm);
+        //printf("FREE HMPI comm  NOT NULL [after]  \n");
+    }
+    if(c->net_comm != MPI_COMM_NULL){
+        //printf("FREE HMPI net _comm NOT NULL [before]  \n");
+        MPI_Comm_free(&c->net_comm);
+        //printf("FREE HMPI net _comm NOT NULL [after]  \n");
+    }
+    if(c->node_comm != MPI_COMM_NULL){
+        //printf("FREE HMPI comm node_comm NOT NULL [before]  \n");
+    	MPI_Comm_free(&c->node_comm);
+        //printf("FREE HMPI comm node_comm NOT NULL [after]  \n");
+    }
+    //MPI_Comm_free(&c->net_comm);
+    //MPI_Comm_free(&c->node_comm);
+    //MPI_Comm_free(&c->comm);
 
     //Free the comm structure itself.
     free(c);
     *comm = HMPI_COMM_NULL;
+    //printf("FREE  [exit]  \n");
 
     return MPI_SUCCESS;
 }

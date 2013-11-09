@@ -143,15 +143,20 @@ void* find_map_address(size_t size)
 #else
 
 //Total shared memory space to mmap.
-#define DEFAULT_TOTAL_SIZE ((1024L*1024L*1024L * 512))
+//#define DEFAULT_TOTAL_SIZE ((1024L*1024L*1024L * 8))
+//#define DEFAULT_TOTAL_SIZE ((1024L*1024L*64))
+//#define DEFAULT_TOTAL_SIZE ((1024L*1024L*1024L*6))
+#define DEFAULT_TOTAL_SIZE ((1024L*1024L*1024L*24))
 
 //How many pieces the available SM memory should be divided into.
 // Each rank/process will get one piece.
-#define DEFAULT_RANK_DIVIDER (16)
+#define DEFAULT_RANK_DIVIDER (20)
+//#define DEFAULT_RANK_DIVIDER (16)
 
 #endif
 
-static char* sm_filename = "hmpismfile";
+//static char* sm_filename = "/hmpismfile.mic";
+static char* sm_filename = "/hmpismfile.cpu";
 
 
 static void __sm_destroy(void)
@@ -309,6 +314,11 @@ static void __attribute__((noinline)) __sm_init(void)
     //SM_RANKS and DEFAULT_RANK_DIVIDER indicate how many regions to break the
     //SM region into -- one region per rank/process.
     tmp = getenv("SM_RANKS");
+    //if (tmp == NULL){
+#ifdef __MIC__
+	tmp = getenv("MIC_PPN");
+#endif 
+    //}
     if(tmp == NULL) {
         rank_divider = DEFAULT_RANK_DIVIDER;
     } else {
@@ -368,6 +378,7 @@ static void __attribute__((noinline)) __sm_init(void)
     //Create my own mspace.
     size_t local_size = total_size / rank_divider;
 
+    printf("params:  %ld %ld\n", total_size, rank_divider);
     //void* base = sm_morecore(local_size);
     void* base = (void*)__sync_fetch_and_add(&sm_region->brk, local_size);
     if(base < sm_lower || base >= sm_upper) {

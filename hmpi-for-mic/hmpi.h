@@ -369,6 +369,7 @@ static int HMPI_Comm_group(HMPI_Comm comm, HMPI_Group* group) __attribute__((unu
 static int HMPI_Comm_group(HMPI_Comm comm, HMPI_Group* group)
 {
     *group = NULL;
+    printf("stub Comm_ group \n"); 
     return MPI_SUCCESS;    
 }
 
@@ -473,6 +474,9 @@ int OPI_Take(void** ptr, int count, MPI_Datatype datatype, int rank, int tag, HM
 #define MPI_Comm_free HMPI_Comm_free
 #define MPI_Comm_split HMPI_Comm_split
 
+#define MPI_Comm_group(c, group) \
+    MPI_Comm_group((c)->comm, group)
+
 #define MPI_Cart_coords(comm, rank, maxdims, coords) \
     MPI_Cart_coords((comm)->comm, rank, maxdims, coords)
 
@@ -539,7 +543,7 @@ int OPI_Take(void** ptr, int count, MPI_Datatype datatype, int rank, int tag, HM
 
 //TODO NOT IMPLEMENTED YET
 // Added to catch apps that call these routines.
-#define MPI_Comm_group HMPI_Comm_group
+//#define MPI_Comm_group HMPI_Comm_group
 
 #endif //HMPI_INTERNAL
 
